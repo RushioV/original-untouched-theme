@@ -1,0 +1,168 @@
+/* Product media carousel with synchronised thumbnails ('product-media-carousel' snippet).
+   Thumbnails come first in the markup: shown below the main carousel on mobile/tablet, as a
+   vertical column on its left on desktop. */
+.product-carousel {
+  --product-carousel-thumbnail-width: 7.7rem;
+  --product-carousel-button-size: 5.6rem;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2.4rem;
+}
+
+.product-carousel__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Main slides: square crop, like the reference (images already use object-fit: cover) */
+.product-carousel__slide {
+  height: auto;
+}
+
+.product-carousel__slide .product-media-container {
+  --aspect-ratio: 1;
+  width: 100%;
+  max-width: 100%;
+}
+
+.product-carousel__viewer .swiper-wrapper {
+  align-items: flex-start;
+}
+
+/* Videos and 3D models play inline, the lightbox opener is only used for images */
+.product-carousel .product__modal-opener:not(.product__modal-opener--image) {
+  display: none;
+}
+
+.product-carousel .deferred-media {
+  display: block;
+  width: 100%;
+}
+
+.product-carousel video {
+  border-radius: calc(var(--media-radius) - var(--media-border-width));
+}
+
+/* Thumbnails. The padding leaves room for the active outline, which Swiper's overflow would clip */
+.product-carousel__thumbnails {
+  padding: 0.4rem;
+}
+
+/* Swiper sets 'height: 100%' on every slide, thumbnails size themselves (square, see .thumbnail-list__item) */
+.product-carousel__thumbnails .product-carousel__thumbnail {
+  height: auto;
+}
+
+.product-carousel__thumbnail .thumbnail {
+  overflow: hidden;
+}
+
+.product-carousel__thumbnail .thumbnail[aria-current] {
+  box-shadow: none;
+  outline: 0.2rem solid rgb(var(--color-foreground));
+  outline-offset: 0.2rem;
+}
+
+/* Prev / next buttons, desktop only (swipe and thumbnails are used on touch devices) */
+.product-carousel__controls {
+  display: none;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 3.2rem;
+}
+
+.product-carousel__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--product-carousel-button-size);
+  height: var(--product-carousel-button-size);
+  padding: 0;
+  color: rgb(var(--color-foreground));
+  background-color: rgb(var(--color-background));
+  border: 0.1rem solid rgb(var(--color-foreground));
+  border-radius: var(--buttons-radius);
+  cursor: pointer;
+  transition: opacity var(--duration-short) ease;
+}
+
+.product-carousel__button:not([disabled]):hover {
+  opacity: 0.75;
+}
+
+.product-carousel__button[disabled],
+.product-carousel__button.swiper-button-disabled {
+  border-color: rgba(var(--color-foreground), 0.3);
+  color: rgba(var(--color-foreground), 0.3);
+  cursor: not-allowed;
+}
+
+.product-carousel__button .svg-wrapper {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.product-carousel__button .icon {
+  width: 100%;
+  height: 100%;
+}
+
+.product-carousel__button--prev .icon {
+  transform: rotate(90deg);
+}
+
+.product-carousel__button--next .icon {
+  transform: rotate(-90deg);
+}
+
+/* Mobile: the main carousel runs to the screen edges (first slide still lines up with the page
+   content through Swiper's slidesOffsetBefore), thumbnails peek off the right edge */
+@media screen and (max-width: 749px) {
+  .product-carousel__viewer {
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+  }
+
+  .product-carousel__thumbnails-column {
+    margin-left: -0.4rem;
+    margin-right: -1.5rem;
+  }
+}
+
+/* Desktop: vertical thumbnails on the left, stretched to the main carousel's height */
+@media screen and (min-width: 990px) {
+  .product-carousel {
+    flex-direction: row;
+    gap: 1.2rem;
+  }
+
+  .product-carousel__thumbnails-column {
+    position: relative;
+    flex: 0 0 calc(var(--product-carousel-thumbnail-width) + 0.8rem);
+  }
+
+  .product-carousel__thumbnails {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+  }
+
+  .product-carousel__thumbnails:not(.swiper-initialized) .swiper-wrapper {
+    flex-direction: column;
+  }
+
+  .product-carousel__thumbnail {
+    width: 100%;
+  }
+
+  .product-carousel__controls {
+    display: flex;
+    /* Line the buttons up with the right edge of the active slide, not the peeking one */
+    padding-right: 20%;
+  }
+}
+
+/* Quick add only shows the first media item */
+quick-add-modal .product-carousel {
+  display: block;
+}

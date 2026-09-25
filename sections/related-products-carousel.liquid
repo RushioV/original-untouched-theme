@@ -1,0 +1,490 @@
+{% comment %}
+  Related products carousel for the product page.
+
+  Products are populated automatically:
+  1. Shopify's Product Recommendations API (loaded asynchronously, see 'related-products-carousel.js')
+  2. Optionally topped up, in this order, so the section still fills up when Shopify has few or no
+     recommendations (e.g. new stores / new products):
+     a. products from the current product's collections
+     b. products of the same product type from the whole store
+     c. any other products from the store
+
+  The recommendations request renders this same section, in which case only the product cards are output.
+{% endcomment %}
+
+{%- if recommendations.performed -%}
+  <ul data-recommendations>
+    {%- assign skip_card_product_styles = false -%}
+    {%- for recommendation in recommendations.products -%}
+      {%- if section.settings.hide_sold_out and recommendation.available == false -%}
+        {%- continue -%}
+      {%- endif -%}
+      {% render 'related-products-carousel-item', card_product: recommendation, skip_styles: skip_card_product_styles %}
+      {%- assign skip_card_product_styles = true -%}
+    {%- endfor -%}
+  </ul>
+{%- else -%}
+  {{ 'component-card.css' | asset_url | stylesheet_tag }}
+  {{ 'component-price.css' | asset_url | stylesheet_tag }}
+  {{ 'component-slider.css' | asset_url | stylesheet_tag }}
+  {{ 'template-collection.css' | asset_url | stylesheet_tag }}
+
+  {%- if section.settings.image_shape == 'blob' -%}
+    {{ 'mask-blobs.css' | asset_url | stylesheet_tag }}
+  {%- endif -%}
+
+  {%- if section.settings.quick_add == 'standard' -%}
+    {{ 'quick-add.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'product-form.js' | asset_url }}" defer="defer"></script>
+    <script src="{{ 'quick-add.js' | asset_url }}" defer="defer"></script>
+  {%- endif -%}
+
+  <script src="{{ 'related-products-carousel.js' | asset_url }}" defer="defer"></script>
+
+  {%- style -%}
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+      padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+    }
+
+    @media screen and (min-width: 750px) {
+      .section-{{ section.id }}-padding {
+        padding-top: {{ section.settings.padding_top }}px;
+        padding-bottom: {{ section.settings.padding_bottom }}px;
+      }
+    }
+  {%- endstyle -%}
+
+  <div class="color-{{ section.settings.color_scheme }} isolate gradient">
+    <related-products-carousel
+      class="related-products-carousel"
+      data-url="{{ routes.product_recommendations_url }}?limit={{ section.settings.products_to_show }}&intent={{ section.settings.recommendation_intent }}"
+      data-section-id="{{ section.id }}"
+      data-product-id="{{ product.id }}"
+      data-limit="{{ section.settings.products_to_show }}"
+      data-columns-desktop="{{ section.settings.columns_desktop }}"
+      data-columns-mobile="{{ section.settings.columns_mobile }}"
+      data-desktop-slider="{{ section.settings.enable_desktop_slider }}"
+      data-mobile-slider="{{ section.settings.swipe_on_mobile }}"
+    >
+      <div data-content></div>
+
+      {%- comment -%} Section layout, filled with product cards by JS once the final product count is known {%- endcomment -%}
+      <template data-shell>
+        <div class="collection section-{{ section.id }}-padding">
+          {%- if section.settings.heading != blank -%}
+            <div class="collection__title title-wrapper title-wrapper--no-top-margin page-width">
+              <h2 class="title inline-richtext {{ section.settings.heading_size }}">
+                {{ section.settings.heading }}
+              </h2>
+            </div>
+          {%- endif -%}
+          <slider-component class="slider-mobile-gutter">
+            <ul
+              id="Slider-{{ section.id }}"
+              class="grid product-grid contains-card contains-card--product{% if settings.card_style == 'standard' %} contains-card--standard{% endif %} grid--{{ section.settings.columns_desktop }}-col-desktop grid--{{ section.settings.columns_mobile }}-col-tablet-down"
+              role="list"
+              aria-label="{{ 'general.slider.name' | t }}"
+              data-list
+            ></ul>
+            <div class="slider-buttons">
+              <button
+                type="button"
+                class="slider-button slider-button--prev"
+                name="previous"
+                aria-label="{{ 'general.slider.previous_slide' | t }}"
+                aria-controls="Slider-{{ section.id }}"
+              >
+                <span class="svg-wrapper">
+                  {{- 'icon-caret.svg' | inline_asset_content -}}
+                </span>
+              </button>
+              <div class="slider-counter caption">
+                <span class="slider-counter--current">1</span>
+                <span aria-hidden="true"> / </span>
+                <span class="visually-hidden">{{ 'general.slider.of' | t }}</span>
+                <span class="slider-counter--total"></span>
+              </div>
+              <button
+                type="button"
+                class="slider-button slider-button--next"
+                name="next"
+                aria-label="{{ 'general.slider.next_slide' | t }}"
+                aria-controls="Slider-{{ section.id }}"
+              >
+                <span class="svg-wrapper">
+                  {{- 'icon-caret.svg' | inline_asset_content -}}
+                </span>
+              </button>
+            </div>
+          </slider-component>
+        </div>
+      </template>
+
+      {%- if section.settings.enable_fallback -%}
+        {%- comment -%}
+          Used when there aren't enough recommendations. Most relevant first:
+          same collection(s), then same product type anywhere in the store, then any product in the store.
+        {%- endcomment -%}
+        <template data-fallback>
+          {%- liquid
+            assign fallback_limit = section.settings.products_to_show
+            assign fallback_count = 0
+            assign fallback_ids = ','
+            assign skip_card_product_styles = false
+          -%}
+          {%- for collection in product.collections limit: 5 -%}
+            {%- if fallback_count >= fallback_limit -%}
+              {%- break -%}
+            {%- endif -%}
+            {%- for item in collection.products limit: 24 -%}
+              {%- if fallback_count >= fallback_limit -%}
+                {%- break -%}
+              {%- endif -%}
+              {%- liquid
+                assign item_key = ',' | append: item.id | append: ','
+                assign include_item = true
+                if item.id == product.id or fallback_ids contains item_key
+                  assign include_item = false
+                elsif section.settings.hide_sold_out and item.available == false
+                  assign include_item = false
+                endif
+              -%}
+              {%- unless include_item -%}
+                {%- continue -%}
+              {%- endunless -%}
+              {%- liquid
+                assign fallback_ids = fallback_ids | append: item.id | append: ','
+                assign fallback_count = fallback_count | plus: 1
+              -%}
+              {% render 'related-products-carousel-item', card_product: item, skip_styles: skip_card_product_styles %}
+              {%- assign skip_card_product_styles = true -%}
+            {%- endfor -%}
+          {%- endfor -%}
+
+          {%- comment -%} Pass 1: same product type, pass 2: any product {%- endcomment -%}
+          {%- for pass in (1..2) -%}
+            {%- if fallback_count >= fallback_limit -%}
+              {%- break -%}
+            {%- endif -%}
+            {%- for item in collections.all.products limit: 50 -%}
+              {%- if fallback_count >= fallback_limit -%}
+                {%- break -%}
+              {%- endif -%}
+              {%- liquid
+                assign item_key = ',' | append: item.id | append: ','
+                assign include_item = true
+                if item.id == product.id or fallback_ids contains item_key
+                  assign include_item = false
+                elsif pass == 1 and item.type != product.type
+                  assign include_item = false
+                elsif section.settings.hide_sold_out and item.available == false
+                  assign include_item = false
+                endif
+              -%}
+              {%- unless include_item -%}
+                {%- continue -%}
+              {%- endunless -%}
+              {%- liquid
+                assign fallback_ids = fallback_ids | append: item.id | append: ','
+                assign fallback_count = fallback_count | plus: 1
+              -%}
+              {% render 'related-products-carousel-item', card_product: item, skip_styles: skip_card_product_styles %}
+              {%- assign skip_card_product_styles = true -%}
+            {%- endfor -%}
+          {%- endfor -%}
+        </template>
+      {%- endif -%}
+
+      {%- if request.design_mode -%}
+        {%- comment -%} Only shown to the merchant in the theme editor, the section is hidden on the storefront {%- endcomment -%}
+        <template data-empty>
+          <div class="page-width section-{{ section.id }}-padding">
+            <p class="caption-large">
+              Related products carousel: no other products to show yet. This section needs at least one other
+              product that is active on the Online Store sales channel
+              {%- if section.settings.hide_sold_out %} and in stock (turn off "Hide sold out products" to include sold out items){% endif -%}
+              {%- unless section.settings.enable_fallback %}, or turn on "Fill with other products from the store"{% endunless -%}
+              . This message is only shown in the theme editor.
+            </p>
+          </div>
+        </template>
+      {%- endif -%}
+    </related-products-carousel>
+
+    {%- if section.settings.image_shape == 'arch' -%}
+      {{ 'mask-arch.svg' | inline_asset_content }}
+    {%- endif -%}
+  </div>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "Related products carousel",
+  "tag": "section",
+  "class": "section",
+  "enabled_on": {
+    "templates": ["product"]
+  },
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Products are selected automatically, no manual setup needed. Recommendations improve over time as Shopify learns from orders and product data."
+    },
+    {
+      "type": "inline_richtext",
+      "id": "heading",
+      "default": "You may also like",
+      "label": "t:sections.related-products.settings.heading.label"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "options": [
+        {
+          "value": "h2",
+          "label": "t:sections.all.heading_size.options__1.label"
+        },
+        {
+          "value": "h1",
+          "label": "t:sections.all.heading_size.options__2.label"
+        },
+        {
+          "value": "h0",
+          "label": "t:sections.all.heading_size.options__3.label"
+        },
+        {
+          "value": "hxl",
+          "label": "t:sections.all.heading_size.options__4.label"
+        },
+        {
+          "value": "hxxl",
+          "label": "t:sections.all.heading_size.options__5.label"
+        }
+      ],
+      "default": "h1",
+      "label": "t:sections.all.heading_size.label"
+    },
+    {
+      "type": "header",
+      "content": "Products"
+    },
+    {
+      "type": "select",
+      "id": "recommendation_intent",
+      "options": [
+        {
+          "value": "related",
+          "label": "Related (similar products)"
+        },
+        {
+          "value": "complementary",
+          "label": "Complementary (bought together)"
+        }
+      ],
+      "default": "related",
+      "label": "Recommendation type",
+      "info": "Complementary products need the Shopify Search & Discovery app."
+    },
+    {
+      "type": "range",
+      "id": "products_to_show",
+      "min": 2,
+      "max": 10,
+      "step": 1,
+      "default": 8,
+      "label": "t:sections.related-products.settings.products_to_show.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_fallback",
+      "default": true,
+      "label": "Fill with other products from the store",
+      "info": "Used when Shopify has fewer recommendations than the maximum products to show. Products from the same collection are used first, then the same product type, then any product."
+    },
+    {
+      "type": "checkbox",
+      "id": "hide_sold_out",
+      "default": false,
+      "label": "Hide sold out products"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "columns_desktop",
+      "min": 1,
+      "max": 6,
+      "step": 1,
+      "default": 4,
+      "label": "t:sections.related-products.settings.columns_desktop.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_desktop_slider",
+      "default": true,
+      "label": "Enable carousel on desktop",
+      "info": "Only applies when there are more products than columns."
+    },
+    {
+      "type": "select",
+      "id": "columns_mobile",
+      "default": "2",
+      "label": "t:sections.related-products.settings.columns_mobile.label",
+      "options": [
+        {
+          "value": "1",
+          "label": "t:sections.related-products.settings.columns_mobile.options__1.label"
+        },
+        {
+          "value": "2",
+          "label": "t:sections.related-products.settings.columns_mobile.options__2.label"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "swipe_on_mobile",
+      "default": true,
+      "label": "Enable swipe on mobile and tablet"
+    },
+    {
+      "type": "color_scheme",
+      "id": "color_scheme",
+      "label": "t:sections.all.colors.label",
+      "info": "t:sections.all.colors.has_cards_info",
+      "default": "scheme-1"
+    },
+    {
+      "type": "header",
+      "content": "t:sections.related-products.settings.header__2.content"
+    },
+    {
+      "type": "select",
+      "id": "image_ratio",
+      "options": [
+        {
+          "value": "adapt",
+          "label": "t:sections.related-products.settings.image_ratio.options__1.label"
+        },
+        {
+          "value": "portrait",
+          "label": "t:sections.related-products.settings.image_ratio.options__2.label"
+        },
+        {
+          "value": "square",
+          "label": "t:sections.related-products.settings.image_ratio.options__3.label"
+        }
+      ],
+      "default": "square",
+      "label": "t:sections.related-products.settings.image_ratio.label"
+    },
+    {
+      "type": "select",
+      "id": "image_shape",
+      "options": [
+        {
+          "value": "default",
+          "label": "t:sections.all.image_shape.options__1.label"
+        },
+        {
+          "value": "arch",
+          "label": "t:sections.all.image_shape.options__2.label"
+        },
+        {
+          "value": "blob",
+          "label": "t:sections.all.image_shape.options__3.label"
+        },
+        {
+          "value": "chevronleft",
+          "label": "t:sections.all.image_shape.options__4.label"
+        },
+        {
+          "value": "chevronright",
+          "label": "t:sections.all.image_shape.options__5.label"
+        },
+        {
+          "value": "diamond",
+          "label": "t:sections.all.image_shape.options__6.label"
+        },
+        {
+          "value": "parallelogram",
+          "label": "t:sections.all.image_shape.options__7.label"
+        },
+        {
+          "value": "round",
+          "label": "t:sections.all.image_shape.options__8.label"
+        }
+      ],
+      "default": "default",
+      "label": "t:sections.all.image_shape.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_secondary_image",
+      "default": true,
+      "label": "t:sections.related-products.settings.show_secondary_image.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_vendor",
+      "default": false,
+      "label": "t:sections.related-products.settings.show_vendor.label"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rating",
+      "default": false,
+      "label": "t:sections.related-products.settings.show_rating.label",
+      "info": "t:sections.related-products.settings.show_rating.info"
+    },
+    {
+      "type": "select",
+      "id": "quick_add",
+      "default": "standard",
+      "label": "t:sections.main-collection-product-grid.settings.quick_add.label",
+      "options": [
+        {
+          "value": "none",
+          "label": "t:sections.main-collection-product-grid.settings.quick_add.options.option_1"
+        },
+        {
+          "value": "standard",
+          "label": "t:sections.main-collection-product-grid.settings.quick_add.options.option_2"
+        }
+      ]
+    },
+    {
+      "type": "header",
+      "content": "t:sections.all.padding.section_padding_heading"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "t:sections.all.padding.padding_bottom",
+      "default": 36
+    }
+  ],
+  "presets": [
+    {
+      "name": "Related products carousel"
+    }
+  ]
+}
+{% endschema %}

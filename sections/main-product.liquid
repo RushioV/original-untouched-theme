@@ -15,6 +15,10 @@
   {{ 'component-slider.css' | asset_url | stylesheet_tag }}
   {{ 'component-rating.css' | asset_url | stylesheet_tag }}
   {{ 'component-deferred-media.css' | asset_url | stylesheet_tag }}
+  {%- if section.settings.gallery_layout == 'carousel' and product.media.size > 0 -%}
+    {{ 'swiper-bundle.min.css' | asset_url | stylesheet_tag }}
+    {{ 'component-product-carousel.css' | asset_url | stylesheet_tag }}
+  {%- endif -%}
 
   {% unless product.has_only_default_variant %}
     {{ 'component-product-variant-picker.css' | asset_url | stylesheet_tag }}
@@ -728,6 +732,9 @@
 
       {%- if product.media.size > 0 -%}
         <script src="{{ 'product-modal.js' | asset_url }}" defer="defer"></script>
+        {%- if section.settings.gallery_layout == 'carousel' -%}
+          <script src="{{ 'swiper-bundle.min.js' | asset_url }}" defer="defer"></script>
+        {%- endif -%}
         <script src="{{ 'media-gallery.js' | asset_url }}" defer="defer"></script>
       {%- endif -%}
 
@@ -2224,10 +2231,15 @@
         {
           "value": "thumbnail_slider",
           "label": "t:sections.main-product.settings.gallery_layout.options__4.label"
+        },
+        {
+          "value": "carousel",
+          "label": "Carousel with thumbnails"
         }
       ],
       "default": "stacked",
-      "label": "t:sections.main-product.settings.gallery_layout.label"
+      "label": "t:sections.main-product.settings.gallery_layout.label",
+      "info": "Carousel with thumbnails is swipeable on all devices, shows vertical thumbnails on desktop and always shows all media."
     },
     {
       "type": "select",

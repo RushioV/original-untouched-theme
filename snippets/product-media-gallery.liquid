@@ -40,6 +40,11 @@
   elsif section.settings.media_size == 'small'
     assign media_width = 0.45
   endif
+
+  assign is_carousel = false
+  if section.settings.gallery_layout == 'carousel' and limit != 1 and product.media.size > 0
+    assign is_carousel = true
+  endif
 -%}
 
 <media-gallery
@@ -52,6 +57,9 @@
   data-desktop-layout="{{ section.settings.gallery_layout }}"
 >
   <div id="GalleryStatus-{{ section.id }}" class="visually-hidden" role="status"></div>
+  {%- if is_carousel -%}
+    {% render 'product-media-carousel', product: product, media_width: media_width %}
+  {%- else -%}
   <slider-component id="GalleryViewer-{{ section.id }}" class="slider-mobile-gutter">
     <a class="skip-to-content-link button visually-hidden quick-add-hidden" href="#ProductInfo-{{ section.id }}">
       {{ 'accessibility.skip_to_product_info' | t }}
@@ -154,6 +162,7 @@
       </button>
     </div>
   </slider-component>
+  {%- endif -%}
   {%- if first_3d_model -%}
     <button
       class="button button--full-width product__xr-button"
@@ -176,7 +185,9 @@
       assign is_not_limited_to_single_item = true
     endif
   -%}
-  {%- if is_not_limited_to_single_item
+  {%- comment -%} The carousel layout renders its own synchronised thumbnails {%- endcomment -%}
+  {%- if is_carousel == false
+    and is_not_limited_to_single_item
     and media_count > 1
     and section.settings.gallery_layout contains 'thumbnail'
     or section.settings.mobile_thumbnails == 'show'

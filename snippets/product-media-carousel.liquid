@@ -1,0 +1,159 @@
+{% comment %}
+  Renders the product media as a swipeable carousel with synchronised thumbnails.
+  Used by 'product-media-gallery' when the "Carousel with thumbnails" layout is selected,
+  and initialised by 'media-gallery.js' (requires 'swiper-bundle.min.js').
+
+  - Media is always rendered in the order set in the admin (not re-ordered per variant); selecting a
+    variant slides to its image instead.
+  - The thumbnails are rendered BEFORE the main carousel (and shown below it on mobile with CSS).
+    product-info.js re-orders the first list in <media-gallery> on variant change, so this keeps it
+    away from the main carousel, whose slides Swiper re-orders itself in loop mode.
+
+  Accepts:
+  - product: {Object} Product liquid object
+  - media_width: {Float} The width percentage that the media column occupies on desktop
+
+  Usage:
+  {% render 'product-media-carousel', product: product, media_width: media_width %}
+{% endcomment %}
+
+{%- liquid
+  assign media_count = product.media.size
+  assign selected_media_id = product.selected_or_first_available_variant.featured_media.id
+
+  assign initial_slide = 0
+  for media in product.media
+    if media.id == selected_media_id
+      assign initial_slide = forloop.index0
+      break
+    endif
+  endfor
+-%}
+
+<div
+  class="product-carousel{% if media_count > 1 %} product-carousel--has-thumbnails{% endif %}"
+  data-initial-slide="{{ initial_slide }}"
+>
+  {%- if media_count > 1 -%}
+    <div class="product-carousel__thumbnails-column quick-add-hidden">
+      <div id="GalleryThumbnails-{{ section.id }}" class="product-carousel__thumbnails swiper">
+        <ul class="swiper-wrapper list-unstyled">
+          {%- for media in product.media -%}
+            {%- capture thumbnail_id -%}Thumbnail-{{ section.id }}-{{ forloop.index }}{%- endcapture -%}
+            <li
+              class="product-carousel__thumbnail thumbnail-list__item swiper-slide"
+              data-target="{{ section.id }}-{{ media.id }}"
+              data-index="{{ forloop.index0 }}"
+            >
+              {%- if media.media_type == 'model' -%}
+                <span class="thumbnail__badge" aria-hidden="true">
+                  <span class="svg-wrapper">
+                    {{- 'icon-3d-model.svg' | inline_asset_content -}}
+                  </span>
+                </span>
+              {%- elsif media.media_type == 'video' or media.media_type == 'external_video' -%}
+                <span class="thumbnail__badge" aria-hidden="true">
+                  <span class="svg-wrapper">
+                    {{- 'icon-play.svg' | inline_asset_content -}}
+                  </span>
+                </span>
+              {%- endif -%}
+              <button
+                type="button"
+                class="thumbnail global-media-settings global-media-settings--no-shadow"
+                aria-label="{%- if media.media_type == 'image' -%}{{ 'products.product.media.load_image' | t: index: forloop.index }}{%- elsif media.media_type == 'model' -%}{{ 'products.product.media.load_model' | t: index: forloop.index }}{%- else -%}{{ 'products.product.media.load_video' | t: index: forloop.index }}{%- endif -%}"
+                aria-controls="Slider-Gallery-{{ section.id }}"
+                aria-describedby="{{ thumbnail_id }}"
+                {% if forloop.index0 == initial_slide %}
+                  aria-current="true"
+                {% endif %}
+              >
+                {{
+                  media.preview_image
+                  | image_url: width: 208
+                  | image_tag:
+                    loading: 'lazy',
+                    sizes: '(min-width: 990px) 80px, 25vw',
+                    widths: '80, 104, 160, 208',
+                    id: thumbnail_id,
+                    alt: media.alt
+                }}
+              </button>
+            </li>
+          {%- endfor -%}
+        </ul>
+      </div>
+    </div>
+  {%- endif -%}
+
+  <div class="product-carousel__main">
+    <div
+      id="GalleryViewer-{{ section.id }}"
+      class="product-carousel__viewer swiper"
+      aria-roledescription="{{ 'sections.slideshow.carousel' | t }}"
+    >
+      <a class="skip-to-content-link button visually-hidden quick-add-hidden" href="#ProductInfo-{{ section.id }}">
+        {{ 'accessibility.skip_to_product_info' | t }}
+      </a>
+      <ul id="Slider-Gallery-{{ section.id }}" class="product-carousel__list swiper-wrapper list-unstyled" role="list">
+        {%- for media in product.media -%}
+          <li
+            id="Slide-{{ section.id }}-{{ media.id }}"
+            class="product-carousel__slide product__media-item swiper-slide{% if forloop.index0 == initial_slide %} is-active{% endif %}{% if media.media_type != 'image' %} product__media-item--full{% endif %}"
+            data-media-id="{{ section.id }}-{{ media.id }}"
+            data-media-alt="{{ media.alt | escape }}"
+            data-index="{{ forloop.index0 }}"
+          >
+            {%- liquid
+              assign lazy_load = true
+              if forloop.index0 == initial_slide
+                assign lazy_load = false
+              endif
+            -%}
+            {% render 'product-thumbnail',
+              media: media,
+              media_count: media_count,
+              position: forloop.index,
+              desktop_layout: section.settings.gallery_layout,
+              mobile_layout: section.settings.mobile_thumbnails,
+              loop: section.settings.enable_video_looping,
+              modal_id: section.id,
+              xr_button: true,
+              media_width: media_width,
+              media_fit: section.settings.media_fit,
+              constrain_to_viewport: false,
+              lazy_load: lazy_load
+            %}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+
+    {%- if media_count > 1 -%}
+      <div class="product-carousel__controls quick-add-hidden">
+        <button
+          type="button"
+          class="product-carousel__button product-carousel__button--prev"
+          name="previous"
+          aria-label="{{ 'general.slider.previous_slide' | t }}"
+          aria-controls="Slider-Gallery-{{ section.id }}"
+        >
+          <span class="svg-wrapper">
+            {{- 'icon-caret.svg' | inline_asset_content -}}
+          </span>
+        </button>
+        <button
+          type="button"
+          class="product-carousel__button product-carousel__button--next"
+          name="next"
+          aria-label="{{ 'general.slider.next_slide' | t }}"
+          aria-controls="Slider-Gallery-{{ section.id }}"
+        >
+          <span class="svg-wrapper">
+            {{- 'icon-caret.svg' | inline_asset_content -}}
+          </span>
+        </button>
+      </div>
+    {%- endif -%}
+  </div>
+</div>
