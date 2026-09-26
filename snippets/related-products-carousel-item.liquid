@@ -1,0 +1,25 @@
+{% comment %}
+  Renders one product card for the 'related-products-carousel' section.
+
+  Accepts:
+  - card_product: {Object} Product Liquid object
+  - skip_styles: {Boolean} Don't include the card component styles (optional)
+
+  Usage:
+  {% render 'related-products-carousel-item', card_product: item, skip_styles: true %}
+{% endcomment %}
+
+<li class="grid__item" data-product-id="{{ card_product.id }}">
+  {% render 'card-product',
+    card_product: card_product,
+    media_aspect_ratio: section.settings.image_ratio,
+    image_shape: section.settings.image_shape,
+    show_secondary_image: section.settings.show_secondary_image,
+    show_vendor: section.settings.show_vendor,
+    show_rating: section.settings.show_rating,
+    skip_styles: skip_styles,
+    section_id: section.id,
+    quick_add: section.settings.quick_add,
+    product_view_context: 'recommendation'
+  %}
+</li>

@@ -199,6 +199,8 @@ if (!customElements.get('product-info')) {
             if (source && destination) {
               destination.innerHTML = source.innerHTML;
               destination.classList.toggle('hidden', shouldHide(source));
+              // Liquid hides empty SKU / untracked inventory with 'visibility-hidden', sync it with the new variant
+              destination.classList.toggle('visibility-hidden', source.classList.contains('visibility-hidden'));
             }
           };
 
